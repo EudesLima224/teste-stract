@@ -1,30 +1,23 @@
 import requests
 
-# A URL base da API
-base_url = "https://sidebar.stract.to/api"
+API_URL = "https://sidebar.stract.to/api"
+TOKEN = "ProcessoSeletivoStract2025"
 
-# Token de autorização (substitua pelo token recebido)
-token = "ProcessoSeletivoStract2025"
+# Dados de teste
+platform = "meta_ads"  # Ou outra plataforma (meta_ads, tiktok_insights)
+account_id = "1"  # Nome da conta, conforme mostrado no print
+account_token = "cf76cf576fc567fc56fc5c6f5cf67fc6"  # Token da conta, substitua pelo real
+fields = "adName,impressions,clicks,spend,cost"  # Exemplo de campos desejados
 
-# Função para buscar insights para uma plataforma e conta específicas
-def fetch_insights(platform, account):
-    # Monta a URL com os parâmetros necessários para a requisição
-    url = f"{base_url}/api/insights?platform={platform}&account={account}&token={token}&fields=clicks,impressions,spend,cpc,ctr"
-    
-    # Faz a requisição GET à API e armazena a resposta
-    response = requests.get(url)
-    
-    # Verifica se a requisição foi bem-sucedida (status code 200)
-    if response.status_code == 200:
-        return response.json()  # Retorna os dados da resposta em formato JSON
-    else:
-        print(f"Erro ao buscar insights para a plataforma {platform} e conta {account}: {response.status_code}")
-        return None
+headers = {"authorization": f"Bearer {TOKEN}"}
 
-# Exemplo de uso da função fetch_insights
-platform = "meta_ads"  # Facebook Ads
-account = "1"  # ID da conta (ex: Jorginho)
+# URL da API de insights
+response = requests.get(f"{API_URL}/insights?platform={platform}&account={account_id}&token={account_token}&fields={fields}", headers=headers)
 
-insights = fetch_insights(platform, account)
-if insights:
-    print(insights)  # Exibe os insights no console
+
+# Verificando o retorno
+if response.status_code == 200:
+    data = response.json()
+    print("Dados de insights:", data)
+else:
+    print(f"Erro na requisição: {response.status_code}, {response.text}")
