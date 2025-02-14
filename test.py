@@ -1,4 +1,4 @@
-import requests
+"""import requests
 
 API_URL = "https://sidebar.stract.to/api"
 TOKEN = "ProcessoSeletivoStract2025"
@@ -21,3 +21,4 @@ if response.status_code == 200:
     print("Dados de insights:", data)
 else:
     print(f"Erro na requisição: {response.status_code}, {response.text}")
+""""""
