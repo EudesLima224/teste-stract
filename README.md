@@ -62,7 +62,7 @@ YouTube,,150,2000,70
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/seuusuario/seurepositorio.git
+git clone https://github.com/EudesLima224/teste-stract
 cd seurepositorio
 ```
 
@@ -93,6 +93,3 @@ A API estará disponível em `http://localhost:5000`.
 - Flask
 - Requests
 
-## Licença
-
-Este projeto está licenciado sob a MIT License - veja o arquivo [LICENSE](LICENSE) para mais detalhes.

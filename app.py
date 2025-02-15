@@ -76,30 +76,67 @@ def geral_report():
         fields = get_fields(platform_value)
         fields_values = [f["value"] for f in fields]
         campos_unicos.update(fields_values)
+        
         for account in accounts:
             account_id = account["id"]
             account_name = account["name"]
             account_token = account.get("token", "")
             insights = get_insights(platform_value, account_id, account_token, fields_values)
+            
             for insight in insights:
                 registro = {"Platform": platform_value, "Account": account_name}
-                for campo in campos_unicos:
-                    registro[campo.capitalize()] = insight.get(campo, "")
-                
+                if platform_value == 'meta_ads':
+                    for campo in campos_unicos:
+                        if campo.capitalize() == 'Cpc':
+                            campo2 = 'Cost_per_click'
+                            valor = insight.get(campo, "")
+                            if valor:  # Adiciona apenas se não for vazio
+                                registro[campo2.capitalize()] = valor
+                        else:
+                            registro[campo.capitalize()] = insight.get(campo, "")
+
+                else:
+                    for campo in campos_unicos:
+                        registro[campo.capitalize()] = insight.get(campo, "")
+
                 # Adiciona "Cost per Click" para GA4
                 if platform_value == "ga4":
                     try:
                         clicks = float(insight.get("clicks", 0))
                         spend = float(insight.get("cost", 0))
-                        registro["Cost per Click"] = spend / clicks if clicks > 0 else 0
+                        registro["Cost_per_click"] = round(spend / clicks, 2) if clicks > 0 else 0
                     except ValueError:
-                        registro["Cost per Click"] = ""
+                        registro["Cost_per_click"] = ""
+
+                    for campo in campos_unicos:
+                        if campo.capitalize() == 'Region':
+                            campo2 = 'Country'
+                            valor = insight.get(campo, "")
+                            if valor:  # Adiciona apenas se não for vazio
+                                registro[campo2.capitalize()] = valor
+                        else:
+                            registro[campo.capitalize()] = insight.get(campo, "")
+
+                # Exclui a chave "Cpc" se ela estiver vazia
+                if "Cpc" in registro and not registro["Cpc"]:
+                    del registro["Cpc"]
                 
+                # Transfere o conteúdo de 'region' para 'country' e apaga 'region'
+                if "region" in registro and registro["region"]:
+                    registro["country"] = registro["region"]
+                    del registro["region"]
+                    
                 registros.append(registro)
 
+    # Garante que "Cpc" (ou "Cost_per_click") não seja adicionada aos headers caso não exista
     headers_csv = ["Platform", "Account"] + sorted([campo.capitalize() for campo in campos_unicos])
-    if "Cost per Click" not in headers_csv:
-        headers_csv.append("Cost per Click")
+    
+    # Remove a coluna "Cpc" de headers_csv se ela não for utilizada
+    if "Cpc" in headers_csv:
+        headers_csv.remove("Cpc")
+    
+    if "Cost_per_click" not in headers_csv and any("Cost_per_click" in r for r in registros):
+        headers_csv.append("Cost_per_click")
 
     csv_data = generate_csv(registros, headers_csv)
 
@@ -107,6 +144,7 @@ def geral_report():
     response = Response(csv_data, mimetype="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     return response
+
 
 @app.route('/geral/resumo', methods=['GET'])
 def geral_summary():
@@ -129,23 +167,76 @@ def geral_summary():
                     resumo = {"Platform": platform_value}
                     for campo in fields_values:
                         resumo[campo.capitalize()] = 0
+                    resumo["Cost_per_click"] = 0  # Inicializa Cost_per_click
                     resumo_por_plataforma[platform_value] = resumo
                 resumo = resumo_por_plataforma[platform_value]
+                
+                # Lógica para o cálculo de Cost_per_click
+                if platform_value == "meta_ads":
+                    # Para a plataforma meta_ads, soma-se o Cpc
+                    cpc = insight.get("cpc")
+                    if cpc:
+                        try:
+                            cpc_value = float(cpc)
+                            if cpc_value < 0 or cpc_value > 1000000:  # Limitar os valores absurdos, ajustando conforme necessário
+                                print(f"Valor de Cpc muito grande ou negativo: {cpc_value}")
+                            else:
+                                resumo["Cost_per_click"] = round(resumo.get("Cost_per_click", 0) + cpc_value, 2)
+                        except ValueError:
+                            print(f"Valor de Cpc inválido para o insight: {cpc}")
+                    else:
+                        print("Cpc não encontrado ou vazio para este insight.")
+
+
+
+                else:
+                    # Para as demais plataformas, calcula-se Cost_per_click como Cost dividido por Clicks
+                    try:
+                        clicks = float(insight.get("clicks", 0))
+                        spend = float(insight.get("cost", 0))
+                        if clicks > 0:
+                            resumo["Cost_per_click"] = round(spend / clicks, 2)
+                        else:
+                            resumo["Cost_per_click"] = 0
+                    except ValueError:
+                        resumo["Cost_per_click"] = ""
+
+                # Preenche os outros campos, mas não soma o 'cost'
                 for campo in fields_values:
                     try:
-                        resumo[campo.capitalize()] += float(insight.get(campo, 0))
+                        # Evitar somar 'cost' nos outros campos
+                        if campo != "cost":
+                            resumo[campo.capitalize()] += float(insight.get(campo, 0))
+                        else:
+                            # A soma do 'cost' deve ser feita de maneira separada
+                            spend = float(insight.get("cost", 0))
+                            resumo["Cost"] = round(resumo.get("Cost", 0) + spend, 2)
                     except ValueError:
                         resumo[campo.capitalize()] = ""
-                resumo_por_plataforma[platform_value] = resumo
+
 
     registros = list(resumo_por_plataforma.values())
+
+    # Ajuste aqui para remover "Cpc" na rota /geral/resumo
     headers_csv = ["Platform"] + sorted([campo.capitalize() for campo in campos_unicos])
+    
+    # Remover "Cpc" dos registros
+    for registro in registros:
+        if "Cpc" in registro:
+            del registro["Cpc"]
+
+    # Se "Cpc" estiver nos headers, remova
+    if "Cpc" in headers_csv:
+        headers_csv.remove("Cpc")
+    
     csv_data = generate_csv(registros, headers_csv)
 
     filename = "geral-resumo.csv"
     response = Response(csv_data, mimetype="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     return response
+
+
 
 @app.route('/<platform>/resumo', methods=['GET'])
 def platform_summary(platform):
