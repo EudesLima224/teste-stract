@@ -186,7 +186,14 @@ def geral_summary():
                             print(f"Valor de Cpc inválido para o insight: {cpc}")
                     else:
                         print("Cpc não encontrado ou vazio para este insight.")
+                    if "Ctr" not in resumo:
+                        resumo["Ctr"] = 0  # Inicializa Ctr
 
+                    ctr = insight.get("ctr", 0)  # Pega o valor de 'ctr' ou 0 se não existir
+                    try:
+                        resumo["Ctr"] += float(ctr)  # Agora ele soma corretamente todos os valores
+                    except ValueError:
+                        print(f"Valor inválido de CTR: {ctr}")
 
 
                 else:
